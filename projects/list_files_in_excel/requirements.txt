@@ -1,0 +1,8 @@
+# install module dependencies with "pip install -r requirements.txt"
+
+openpyxl        # to process Excel
+python-dateutil # to get relative dates
+
+# Dates are not easy to manipulate.
+# This page provides a list of useful modules to do it:
+# https://opensource.com/article/18/4/python-datetime-libraries
