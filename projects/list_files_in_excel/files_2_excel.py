@@ -4,9 +4,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
+from dateutil.relativedelta import relativedelta
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from dateutil.relativedelta import relativedelta
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.worksheet.worksheet import Worksheet  # for type hints
 
 # cspell:word modif
 # cspell:ignore dateutil, relativedelta
@@ -43,14 +45,10 @@ class FileInfo:
         return datetime.fromtimestamp(self.path.stat().st_mtime)
 
 
-def files_2_excel(root: PathLike, xlsx: PathLike):
-    """List all files in a directory and add to an Excel file"""
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "List of Files"
-
+def _write_list_files(ws: Worksheet, rootdir: Path):
+    """Write the list of files in the given worksheet"""
     headers = [
-        ("File", 80),
+        ("File", 100),
         ("Type", 10),
         ("Size", 15),
         ("Size (bytes)", 15),
@@ -60,12 +58,12 @@ def files_2_excel(root: PathLike, xlsx: PathLike):
         ws.cell(row=1, column=col).value = head
         ws.column_dimensions[get_column_letter(col)].width = width
 
-    rootdir = Path(root)
-    n_row = 2
+    n_row = 1
     for path in rootdir.rglob("*.*"):
         if not path.is_file():
             continue
 
+        n_row += 1
         info = FileInfo(path)
         infos = [
             str(info.path),
@@ -75,11 +73,39 @@ def files_2_excel(root: PathLike, xlsx: PathLike):
             info.modif_time,
         ]
         for col, value in enumerate(infos, start=1):
-            ws.cell(row=n_row, column=col).value = value
-        n_row += 1
+            cell = ws.cell(row=n_row, column=col)
+            cell.value = value
+            if isinstance(value, (float, int)):
+                cell.number_format = "#,##0_);(#,##0)"
+            elif isinstance(value, datetime):
+                cell.number_format = "[$-en-US]m/d/yy h:mm AM/PM;@"
+
+    last_col = get_column_letter(len(headers))
+    table = Table(displayName="ListFiles", ref=f"A1:{last_col}{n_row}")
+    # Add a default style with striped rows and banded columns
+    style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
+    table.tableStyleInfo = style
+    ws.add_table(table)
+
+
+def _write_summary(ws: Worksheet):
+    """Create a summary of data in a given Worksheet"""
+    # TODO: implement
+
+
+def files_2_excel(root: PathLike, xlsx: PathLike):
+    """List all files in a directory and add to an Excel file"""
+    wb = Workbook()
+
+    ws_list = wb.active
+    ws_list.title = "List of Files"
+    _write_list_files(ws_list, Path(root))
+
+    ws_summary = wb.create_sheet("Summary", 0)
+    _write_summary(ws_summary)
 
     wb.save(xlsx)
-    print(f"List of files saved sucessfully in {xlsx}")
+    print(f"List of files saved successfully in {xlsx}")
 
 
 if __name__ == "__main__":
